@@ -196,47 +196,66 @@ const App: React.FC = () => {
 
   if (status === AppStatus.IDLE || status === AppStatus.PROCESSING) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative">
-        <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
+      <div className="h-screen w-full bg-slate-950 overflow-y-auto relative flex flex-col items-center py-12 px-6">
+        <div className="fixed inset-0 overflow-hidden opacity-20 pointer-events-none">
           <div className="absolute top-10 left-10 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl animate-pulse"></div>
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-emerald-600 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"></div>
         </div>
         
-        <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-emerald-400 mb-2 z-10">
-          LyricalSync AI
-        </h1>
-        <p className="text-slate-400 mb-10 text-center max-w-lg z-10">
-          AIがリズムを解析し、歌詞ファイルを瞬時に同期。<br/>
-          プロフェッショナルな字幕作成を、驚くほど簡単に。
-        </p>
+        <div className="w-full max-w-5xl flex flex-col items-center z-10">
+          <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-emerald-400 mb-2 mt-4 md:mt-10 text-center">
+            LyricalSync AI
+          </h1>
+          <p className="text-slate-400 mb-10 text-center max-w-lg">
+            AIがリズムを解析し、歌詞ファイルを瞬時に同期。<br/>
+            プロフェッショナルな字幕作成を、驚くほど簡単に。
+          </p>
 
-        <div className="w-full max-w-2xl z-10 bg-slate-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-slate-800">
-          {status === AppStatus.PROCESSING ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Wand2 size={24} className="text-indigo-400 animate-pulse" />
+          <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-slate-800">
+            {status === AppStatus.PROCESSING ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Wand2 size={24} className="text-indigo-400 animate-pulse" />
+                  </div>
                 </div>
+                <h2 className="text-xl font-semibold mt-6 text-slate-200">AIが解析中...</h2>
+                <p className="text-slate-400 mt-2">音声の長さによっては数分かかる場合があります</p>
               </div>
-              <h2 className="text-xl font-semibold mt-6 text-slate-200">AIが解析中...</h2>
-              <p className="text-slate-400 mt-2">音声の長さによっては数分かかる場合があります</p>
+            ) : (
+              <FileUploader 
+                audioFile={audioFile}
+                textFile={textFile}
+                onAudioUpload={handleAudioUpload}
+                onTextUpload={handleTextUpload}
+                isLoading={status === AppStatus.PROCESSING}
+              />
+            )}
+          </div>
+          
+          {/* Feature Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-12 mb-8">
+            <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl backdrop-blur-sm flex flex-col items-center text-center hover:bg-slate-800/40 hover:border-indigo-500/30 transition-all">
+              <h3 className="text-lg font-bold text-slate-100 mb-2">AI自動同期</h3>
+              <p className="text-slate-400 text-sm">Gemini 2.5を使用してテキストと音声を自動調整</p>
             </div>
-          ) : (
-            <FileUploader 
-              audioFile={audioFile}
-              textFile={textFile}
-              onAudioUpload={handleAudioUpload}
-              onTextUpload={handleTextUpload}
-              isLoading={status === AppStatus.PROCESSING}
-            />
-          )}
+            
+            <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl backdrop-blur-sm flex flex-col items-center text-center hover:bg-slate-800/40 hover:border-indigo-500/30 transition-all">
+              <h3 className="text-lg font-bold text-slate-100 mb-2">ビジュアルエディタ</h3>
+              <p className="text-slate-400 text-sm">ミリ秒単位でタイムスタンプを微調整</p>
+            </div>
+
+            <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl backdrop-blur-sm flex flex-col items-center text-center hover:bg-slate-800/40 hover:border-indigo-500/30 transition-all">
+              <h3 className="text-lg font-bold text-slate-100 mb-2">標準エクスポート</h3>
+              <p className="text-slate-400 text-sm">主要な音楽プレイヤーと互換性あり</p>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 font-mono">
+            Powered by Gemini 2.5 Flash
+          </p>
         </div>
-        
-        {/* API Key Note (Implicit) */}
-        <p className="mt-8 text-xs text-slate-600 font-mono">
-          Powered by Gemini 2.5 Flash
-        </p>
       </div>
     );
   }
