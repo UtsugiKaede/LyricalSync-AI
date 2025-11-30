@@ -1,0 +1,5 @@
+{
+  "name": "LyricalSync AI",
+  "description": "AI-powered LRC generator and editor. Upload audio and text to automatically sync lyrics, then fine-tune with precision tools.",
+  "requestFramePermissions": []
+}
