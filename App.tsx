@@ -6,7 +6,7 @@ import { LyricsChart } from './components/LyricsChart';
 import { analyzeLyricsWithAudio } from './services/geminiService';
 import { LyricLine, MetaData, AppStatus } from './types';
 import { formatLrcTime, generateId, fileToBase64 } from './utils';
-import { Download, RefreshCw, Wand2, ArrowLeft, Save, Clock, FilePlus, HelpCircle, Play, Info } from 'lucide-react';
+import { Download, RefreshCw, Wand2, ArrowLeft, Save, Clock, FilePlus, HelpCircle, Play, Info, Sparkles, MousePointerClick, FileJson } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
@@ -20,13 +20,6 @@ const App: React.FC = () => {
 
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-process when both files are present
-  useEffect(() => {
-    if (audioFile && textFile && status === AppStatus.IDLE) {
-      handleAutoProcess();
-    }
-  }, [audioFile, textFile]);
 
   // Handle Space key for Play/Pause
   useEffect(() => {
@@ -224,31 +217,65 @@ const App: React.FC = () => {
                 <p className="text-slate-400 mt-2">音声の長さによっては数分かかる場合があります</p>
               </div>
             ) : (
-              <FileUploader 
-                audioFile={audioFile}
-                textFile={textFile}
-                onAudioUpload={handleAudioUpload}
-                onTextUpload={handleTextUpload}
-                isLoading={status === AppStatus.PROCESSING}
-              />
+              <>
+                <FileUploader 
+                  audioFile={audioFile}
+                  textFile={textFile}
+                  onAudioUpload={handleAudioUpload}
+                  onTextUpload={handleTextUpload}
+                  isLoading={status === AppStatus.PROCESSING}
+                />
+                
+                <button
+                  onClick={handleAutoProcess}
+                  disabled={!audioFile || !textFile}
+                  className={`
+                    mt-6 w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 flex items-center justify-center space-x-2
+                    ${audioFile && textFile 
+                      ? 'bg-gradient-to-r from-indigo-500 to-emerald-500 hover:from-indigo-400 hover:to-emerald-400 text-white shadow-indigo-500/25 transform hover:scale-[1.02]' 
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'}
+                  `}
+                >
+                  <Wand2 size={20} className={audioFile && textFile ? 'animate-pulse' : ''} />
+                  <span>AI同期を開始</span>
+                </button>
+              </>
             )}
           </div>
           
           {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-12 mb-8">
-            <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl backdrop-blur-sm flex flex-col items-center text-center hover:bg-slate-800/40 hover:border-indigo-500/30 transition-all">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl mt-16 mb-12 px-4">
+            {/* Card 1 */}
+            <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl backdrop-blur-sm flex flex-col items-center text-center group hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all duration-300 shadow-lg">
+              <div className="w-12 h-12 bg-indigo-500/10 rounded-full flex items-center justify-center mb-4 text-indigo-400 group-hover:scale-110 transition-transform">
+                 <Sparkles size={24} />
+              </div>
               <h3 className="text-lg font-bold text-slate-100 mb-2">AI自動同期</h3>
-              <p className="text-slate-400 text-sm">Gemini 2.5を使用してテキストと音声を自動調整</p>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Gemini 2.5を使用して<br/>テキストと音声を自動調整
+              </p>
             </div>
             
-            <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl backdrop-blur-sm flex flex-col items-center text-center hover:bg-slate-800/40 hover:border-indigo-500/30 transition-all">
+            {/* Card 2 */}
+            <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl backdrop-blur-sm flex flex-col items-center text-center group hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all duration-300 shadow-lg">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4 text-emerald-400 group-hover:scale-110 transition-transform">
+                 <MousePointerClick size={24} />
+              </div>
               <h3 className="text-lg font-bold text-slate-100 mb-2">ビジュアルエディタ</h3>
-              <p className="text-slate-400 text-sm">ミリ秒単位でタイムスタンプを微調整</p>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                ミリ秒単位で<br/>タイムスタンプを微調整
+              </p>
             </div>
 
-            <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-xl backdrop-blur-sm flex flex-col items-center text-center hover:bg-slate-800/40 hover:border-indigo-500/30 transition-all">
+            {/* Card 3 */}
+            <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-2xl backdrop-blur-sm flex flex-col items-center text-center group hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all duration-300 shadow-lg">
+               <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 text-blue-400 group-hover:scale-110 transition-transform">
+                 <FileJson size={24} />
+              </div>
               <h3 className="text-lg font-bold text-slate-100 mb-2">標準エクスポート</h3>
-              <p className="text-slate-400 text-sm">主要な音楽プレイヤーと互換性あり</p>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                主要な音楽プレイヤーと<br/>互換性あり
+              </p>
             </div>
           </div>
 
