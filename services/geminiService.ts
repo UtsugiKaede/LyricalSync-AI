@@ -67,10 +67,22 @@ export const analyzeLyricsWithAudio = async (
       }
     });
 
-    const jsonText = response.text;
+    let jsonText = response.text;
     if (!jsonText) throw new Error("No response from AI");
 
+    // CLEANUP: Remove potential markdown code blocks which can cause JSON.parse to fail
+    jsonText = jsonText.trim();
+    if (jsonText.startsWith("```json")) {
+        jsonText = jsonText.replace(/^```json/, "").replace(/```$/, "");
+    } else if (jsonText.startsWith("```")) {
+        jsonText = jsonText.replace(/^```/, "").replace(/```$/, "");
+    }
+
     const parsed = JSON.parse(jsonText);
+    
+    if (!parsed.lines || !Array.isArray(parsed.lines)) {
+        throw new Error("Invalid JSON structure returned");
+    }
     
     // Map to our internal structure
     return parsed.lines.map((line: any) => ({
@@ -82,14 +94,7 @@ export const analyzeLyricsWithAudio = async (
 
   } catch (error) {
     console.error("Gemini Sync Error:", error);
-    // Fallback: Return raw lines with 0 timestamp
-    return rawLyrics.split('\n')
-      .filter(l => l.trim() !== '')
-      .map(line => ({
-        id: generateId(),
-        timestamp: 0,
-        text: line.trim(),
-        needsReview: true
-      }));
+    // Rethrow to let App.tsx handle the fallback UI
+    throw error;
   }
 };

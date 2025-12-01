@@ -55,6 +55,13 @@ const App: React.FC = () => {
   const handleAutoProcess = async () => {
     if (!audioFile || !textFile) return;
 
+    // Check file size limit (approx 19MB to be safe for Base64 overhead inline data limit)
+    // 19MB = 19 * 1024 * 1024
+    if (audioFile.size > 19 * 1024 * 1024) {
+      alert("ファイルサイズが大きすぎます (上限: 約19MB)。\nGemini APIの制限により、大きなファイルは解析できません。\nMP3形式などに圧縮してから再度お試しください。");
+      return;
+    }
+
     setStatus(AppStatus.PROCESSING);
     
     try {
@@ -62,18 +69,16 @@ const App: React.FC = () => {
       const textContent = await textFile.text();
       
       // Convert audio to base64
-      // WARNING: Large files might crash browser or API. 
-      // Gemini Flash supports approx 1 hour of audio, but client-side Base64 string limit is ~500MB string length.
-      // 10MB mp3 is fine. 50MB wav might be heavy.
       const audioB64 = await fileToBase64(audioFile);
       
       const generatedLines = await analyzeLyricsWithAudio(audioB64, audioFile.type, textContent);
       
       setLines(generatedLines);
       setStatus(AppStatus.EDITING);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Processing failed", error);
-      alert("AI解析に失敗しました。手動モードで開始します。");
+      const msg = error.message || "Unknown error";
+      alert(`AI解析に失敗しました: ${msg}\n\n手動編集モードで開始します。`);
       
       // Fallback manual mode
       const text = await textFile.text();
