@@ -50,6 +50,25 @@ export const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+// Get audio duration from file
+export const getAudioDuration = (file: File): Promise<number> => {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const audio = document.createElement("audio");
+    audio.muted = true;
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => {
+      resolve(audio.duration);
+      URL.revokeObjectURL(objectUrl);
+    };
+    audio.onerror = () => {
+      resolve(0); // Fail safe
+      URL.revokeObjectURL(objectUrl);
+    };
+    audio.src = objectUrl;
+  });
+};
+
 // Fallback to determine MIME type from filename extension if browser fails
 export const getMimeTypeFromFilename = (filename: string): string => {
   const parts = filename.split('.');

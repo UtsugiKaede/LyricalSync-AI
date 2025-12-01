@@ -2,20 +2,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { LyricLine } from "../types";
 import { generateId, parseLrcTime } from "../utils";
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const analyzeLyricsWithAudio = async (
   audioBase64: string,
   audioMimeType: string,
-  rawLyrics: string
+  rawLyrics: string,
+  duration: number
 ): Promise<LyricLine[]> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = 'gemini-2.5-flash';
 
     const systemPrompt = `
       You are an expert audio lyrics synchronizer. 
-      I will provide an audio file and a text of lyrics.
+      I will provide an audio file (approx ${Math.round(duration)} seconds long) and a text of lyrics.
       Your task is to estimate the start timestamp for each line of the lyrics based on the audio.
       
       Return a JSON object with a 'lines' array. 
@@ -24,8 +23,11 @@ export const analyzeLyricsWithAudio = async (
       - 'text': the lyrics text line (preserve original text exactly).
       - 'confidence': a number between 0 and 1 indicating how sure you are.
       
-      If the audio is instrumental or you cannot detect lyrics for a specific line, make a best guess based on typical song structure or previous lines.
-      Do not skip lines from the provided text. Matches should be 1:1.
+      CRITICAL INSTRUCTIONS:
+      1. Output PURE JSON. No markdown formatting.
+      2. The last timestamp should not exceed ${duration} seconds.
+      3. Do not skip any lines from the provided text. Matches should be 1:1.
+      4. If the audio is instrumental or you cannot detect lyrics for a specific line, make a best guess based on linear interpolation.
     `;
 
     const userPrompt = `Here are the lyrics to sync:\n\n${rawLyrics}`;
@@ -71,8 +73,6 @@ export const analyzeLyricsWithAudio = async (
     if (!jsonText) throw new Error("No response from AI");
 
     // ROBUST CLEANUP: Find the JSON object explicitly
-    // This handles cases where Gemini adds text before "```json" or after "```"
-    // or adds explanations despite the JSON mode.
     const startIndex = jsonText.indexOf('{');
     const endIndex = jsonText.lastIndexOf('}');
     

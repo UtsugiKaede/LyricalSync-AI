@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { FileUploader } from './components/FileUploader';
 import { Player } from './components/Player';
@@ -6,7 +5,7 @@ import { EditorRow } from './components/EditorRow';
 import { LyricsChart } from './components/LyricsChart';
 import { analyzeLyricsWithAudio } from './services/geminiService';
 import { LyricLine, MetaData, AppStatus } from './types';
-import { formatLrcTime, generateId, fileToBase64, getMimeTypeFromFilename } from './utils';
+import { formatLrcTime, generateId, fileToBase64, getMimeTypeFromFilename, getAudioDuration } from './utils';
 import { Download, RefreshCw, Wand2, ArrowLeft, Save, Clock, FilePlus, HelpCircle, Play, Info, Sparkles, MousePointerClick, FileJson } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -74,7 +73,11 @@ const App: React.FC = () => {
 
     // 2. Defer heavy processing to next tick so React can render the loading screen first
     setTimeout(async () => {
+      let duration = 0;
       try {
+        // Step 0: Get duration for better context
+        duration = await getAudioDuration(audioFile);
+
         // Step 1: Encode Audio
         setLoadingMessage("音声ファイルをエンコード中...");
         // This is the heavy blocking part
@@ -92,7 +95,7 @@ const App: React.FC = () => {
         
         // Step 4: Call AI
         setLoadingMessage("AIによる同期解析を実行中...\nこれには数分かかる場合があります。");
-        const generatedLines = await analyzeLyricsWithAudio(audioB64, mimeType, textContent);
+        const generatedLines = await analyzeLyricsWithAudio(audioB64, mimeType, textContent, duration);
         
         setLoadingMessage("エディタを構築中...");
         setLines(generatedLines);
@@ -103,19 +106,31 @@ const App: React.FC = () => {
         const msg = error.message || "Unknown error";
         
         // Short delay before alert to let UI update if needed
-        setTimeout(() => {
-          alert(`AI解析エラー: ${msg}\n\n手動編集モードに切り替えます。`);
+        setTimeout(async () => {
+          alert(`AI解析エラー: ${msg}\n\n手動編集モードに切り替えます（等間隔配置）。`);
           
-          // Fallback manual mode
-          textFile.text().then(text => {
-             const rawLines = text.split('\n')
-            .filter(l => l.trim() !== '')
-            .map(l => ({ id: generateId(), timestamp: 0, text: l.trim(), needsReview: true }));
-            setLines(rawLines);
+          // Fallback manual mode with Even Distribution
+          // If duration failed (0), default to 180s (3 mins)
+          const fallbackDuration = duration || 180;
+          
+          try {
+            const text = await textFile.text();
+            const rawLines = text.split('\n').filter(l => l.trim() !== '');
+            const step = fallbackDuration / (rawLines.length || 1);
+            
+            const fallbackLines = rawLines.map((l, i) => ({ 
+              id: generateId(), 
+              timestamp: i * step, 
+              text: l.trim(), 
+              needsReview: true 
+            }));
+            
+            setLines(fallbackLines);
             setStatus(AppStatus.EDITING);
-          }).catch(() => {
+          } catch (fallbackError) {
+             console.error("Fallback failed", fallbackError);
              setStatus(AppStatus.IDLE);
-          });
+          }
         }, 100);
       }
     }, 100);
@@ -222,7 +237,7 @@ const App: React.FC = () => {
     }
   }, [activeLineIndex, status]);
 
-  if (status === AppStatus.IDLE || status === AppStatus.PROCESSING) {
+  if (([AppStatus.IDLE, AppStatus.PROCESSING] as AppStatus[]).includes(status)) {
     return (
       <div className="h-screen w-full bg-slate-950 overflow-y-auto relative flex flex-col items-center py-12 px-6">
         <div className="fixed inset-0 overflow-hidden opacity-20 pointer-events-none">
