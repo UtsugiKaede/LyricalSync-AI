@@ -1,3 +1,4 @@
+
 // Format seconds to [mm:ss.xx]
 export const formatLrcTime = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -47,4 +48,23 @@ export const fileToBase64 = (file: File): Promise<string> => {
     };
     reader.onerror = error => reject(error);
   });
+};
+
+// Fallback to determine MIME type from filename extension if browser fails
+export const getMimeTypeFromFilename = (filename: string): string => {
+  const parts = filename.split('.');
+  if (parts.length === 1) return 'audio/mp3'; // Default fallback
+  const ext = parts.pop()?.toLowerCase();
+  
+  const mimeMap: Record<string, string> = {
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'm4a': 'audio/mp4',
+    'ogg': 'audio/ogg',
+    'flac': 'audio/flac',
+    'aac': 'audio/aac',
+    'webm': 'audio/webm'
+  };
+  
+  return mimeMap[ext || ''] || 'audio/mp3';
 };

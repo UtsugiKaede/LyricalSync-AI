@@ -70,12 +70,22 @@ export const analyzeLyricsWithAudio = async (
     let jsonText = response.text;
     if (!jsonText) throw new Error("No response from AI");
 
-    // CLEANUP: Remove potential markdown code blocks which can cause JSON.parse to fail
-    jsonText = jsonText.trim();
-    if (jsonText.startsWith("```json")) {
-        jsonText = jsonText.replace(/^```json/, "").replace(/```$/, "");
-    } else if (jsonText.startsWith("```")) {
-        jsonText = jsonText.replace(/^```/, "").replace(/```$/, "");
+    // ROBUST CLEANUP: Find the JSON object explicitly
+    // This handles cases where Gemini adds text before "```json" or after "```"
+    // or adds explanations despite the JSON mode.
+    const startIndex = jsonText.indexOf('{');
+    const endIndex = jsonText.lastIndexOf('}');
+    
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        jsonText = jsonText.substring(startIndex, endIndex + 1);
+    } else {
+        // Fallback cleanup if braces aren't clear
+        jsonText = jsonText.trim();
+        if (jsonText.startsWith("```json")) {
+            jsonText = jsonText.replace(/^```json/, "").replace(/```\s*$/, "");
+        } else if (jsonText.startsWith("```")) {
+            jsonText = jsonText.replace(/^```/, "").replace(/```\s*$/, "");
+        }
     }
 
     const parsed = JSON.parse(jsonText);

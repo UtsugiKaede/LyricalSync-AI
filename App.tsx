@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { FileUploader } from './components/FileUploader';
 import { Player } from './components/Player';
@@ -5,7 +6,7 @@ import { EditorRow } from './components/EditorRow';
 import { LyricsChart } from './components/LyricsChart';
 import { analyzeLyricsWithAudio } from './services/geminiService';
 import { LyricLine, MetaData, AppStatus } from './types';
-import { formatLrcTime, generateId, fileToBase64 } from './utils';
+import { formatLrcTime, generateId, fileToBase64, getMimeTypeFromFilename } from './utils';
 import { Download, RefreshCw, Wand2, ArrowLeft, Save, Clock, FilePlus, HelpCircle, Play, Info, Sparkles, MousePointerClick, FileJson } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -17,6 +18,7 @@ const App: React.FC = () => {
   const [lines, setLines] = useState<LyricLine[]>([]);
   const [meta, setMeta] = useState<MetaData>({ title: '', artist: '', album: '', by: 'LyricalSync AI' });
   const [currentTime, setCurrentTime] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState<string>("準備中...");
 
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -52,43 +54,71 @@ const App: React.FC = () => {
     setTextFile(file);
   };
 
-  const handleAutoProcess = async () => {
+  const handleAutoProcess = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!audioFile || !textFile) return;
 
-    // Check file size limit (approx 19MB to be safe for Base64 overhead inline data limit)
-    // 19MB = 19 * 1024 * 1024
-    if (audioFile.size > 19 * 1024 * 1024) {
-      alert("ファイルサイズが大きすぎます (上限: 約19MB)。\nGemini APIの制限により、大きなファイルは解析できません。\nMP3形式などに圧縮してから再度お試しください。");
+    // Check file size limit (approx 25MB to be safe for Base64 overhead inline data limit)
+    if (audioFile.size > 25 * 1024 * 1024) {
+      alert("ファイルサイズが大きすぎます (上限: 約25MB)。\nGemini APIの制限により、大きなファイルは解析できません。\nMP3形式などに圧縮してから再度お試しください。");
       return;
     }
 
+    // 1. Start Loading UI immediately to prevent "button not working" feel
     setStatus(AppStatus.PROCESSING);
-    
-    try {
-      // Read text content
-      const textContent = await textFile.text();
-      
-      // Convert audio to base64
-      const audioB64 = await fileToBase64(audioFile);
-      
-      const generatedLines = await analyzeLyricsWithAudio(audioB64, audioFile.type, textContent);
-      
-      setLines(generatedLines);
-      setStatus(AppStatus.EDITING);
-    } catch (error: any) {
-      console.error("Processing failed", error);
-      const msg = error.message || "Unknown error";
-      alert(`AI解析に失敗しました: ${msg}\n\n手動編集モードで開始します。`);
-      
-      // Fallback manual mode
-      const text = await textFile.text();
-      const rawLines = text.split('\n')
-        .filter(l => l.trim() !== '')
-        .map(l => ({ id: generateId(), timestamp: 0, text: l.trim(), needsReview: true }));
-      
-      setLines(rawLines);
-      setStatus(AppStatus.EDITING);
-    }
+    setLoadingMessage("ファイルを読み込み中...");
+
+    // 2. Defer heavy processing to next tick so React can render the loading screen first
+    setTimeout(async () => {
+      try {
+        // Step 1: Encode Audio
+        setLoadingMessage("音声ファイルをエンコード中...");
+        // This is the heavy blocking part
+        const audioB64 = await fileToBase64(audioFile);
+        
+        // Step 2: Read Text
+        setLoadingMessage("歌詞テキストを解析中...");
+        const textContent = await textFile.text();
+        
+        // Step 3: Check Mime Type
+        let mimeType = audioFile.type;
+        if (!mimeType) {
+          mimeType = getMimeTypeFromFilename(audioFile.name);
+        }
+        
+        // Step 4: Call AI
+        setLoadingMessage("AIによる同期解析を実行中...\nこれには数分かかる場合があります。");
+        const generatedLines = await analyzeLyricsWithAudio(audioB64, mimeType, textContent);
+        
+        setLoadingMessage("エディタを構築中...");
+        setLines(generatedLines);
+        setStatus(AppStatus.EDITING);
+        
+      } catch (error: any) {
+        console.error("Processing failed", error);
+        const msg = error.message || "Unknown error";
+        
+        // Short delay before alert to let UI update if needed
+        setTimeout(() => {
+          alert(`AI解析エラー: ${msg}\n\n手動編集モードに切り替えます。`);
+          
+          // Fallback manual mode
+          textFile.text().then(text => {
+             const rawLines = text.split('\n')
+            .filter(l => l.trim() !== '')
+            .map(l => ({ id: generateId(), timestamp: 0, text: l.trim(), needsReview: true }));
+            setLines(rawLines);
+            setStatus(AppStatus.EDITING);
+          }).catch(() => {
+             setStatus(AppStatus.IDLE);
+          });
+        }, 100);
+      }
+    }, 100);
   };
 
   const handleUpdateLine = (id: string, updates: Partial<LyricLine>) => {
@@ -209,17 +239,17 @@ const App: React.FC = () => {
             プロフェッショナルな字幕作成を、驚くほど簡単に。
           </p>
 
-          <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-slate-800">
+          <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-slate-800 transition-all duration-300">
             {status === AppStatus.PROCESSING ? (
-              <div className="flex flex-col items-center justify-center py-20">
+              <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
                 <div className="relative">
-                  <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                  <div className="w-20 h-20 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Wand2 size={24} className="text-indigo-400 animate-pulse" />
+                    <Wand2 size={28} className="text-indigo-400 animate-pulse" />
                   </div>
                 </div>
-                <h2 className="text-xl font-semibold mt-6 text-slate-200">AIが解析中...</h2>
-                <p className="text-slate-400 mt-2">音声の長さによっては数分かかる場合があります</p>
+                <h2 className="text-xl font-semibold mt-8 text-slate-200">{loadingMessage}</h2>
+                <p className="text-slate-400 mt-3 text-sm animate-pulse">ブラウザを閉じずにそのままお待ちください</p>
               </div>
             ) : (
               <>
@@ -232,12 +262,13 @@ const App: React.FC = () => {
                 />
                 
                 <button
+                  type="button"
                   onClick={handleAutoProcess}
                   disabled={!audioFile || !textFile}
                   className={`
-                    mt-6 w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 flex items-center justify-center space-x-2
+                    mt-6 w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-300 flex items-center justify-center space-x-2 select-none
                     ${audioFile && textFile 
-                      ? 'bg-gradient-to-r from-indigo-500 to-emerald-500 hover:from-indigo-400 hover:to-emerald-400 text-white shadow-indigo-500/25 transform hover:scale-[1.02]' 
+                      ? 'bg-gradient-to-r from-indigo-500 to-emerald-500 hover:from-indigo-400 hover:to-emerald-400 text-white shadow-indigo-500/25 transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer' 
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'}
                   `}
                 >
